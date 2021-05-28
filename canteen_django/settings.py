@@ -101,7 +101,7 @@ DATABASES = {
             'NAME': 'aisoluti_canteen',
             'USER': 'root',
             'PASSWORD': '1234',
-            'HOST': 'localhost'
+            'HOST': '127.0.0.1'
         }
     }
 
