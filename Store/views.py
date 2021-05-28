@@ -13,7 +13,7 @@ class CategoryView(viewsets.ModelViewSet):
 class MenuView(viewsets.ModelViewSet):
     queryset = Menu.objects.all() 
     serializer_class = MenuSerializer
-    permission_classes = (permissions.IsAuthenticated, )
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, )
 
 
 class OrderView(viewsets.ModelViewSet):

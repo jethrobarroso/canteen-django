@@ -1,13 +1,16 @@
 from datetime import datetime
 import os
 from django.db import models
-from django.db.models.deletion import CASCADE
+from django.db.models.deletion import CASCADE, SET_NULL
 from django.db.models.fields import BLANK_CHOICE_DASH
 from django.urls import reverse
 from django.dispatch import receiver
 from django_resized import ResizedImageField
 from django.utils.text import slugify
 from django_extensions.db.fields import AutoSlugField
+from django.core.files.base import ContentFile
+from PIL import Image
+from io import BytesIO
 # from rest_framework import serializers
 
 
@@ -23,7 +26,7 @@ class Category(models.Model):
     description = models.CharField(max_length=240, unique=True)
     slug = AutoSlugField(populate_from='description')
     category_pic = ResizedImageField(size=[300,200], quality=100, crop=['middle', 'center'],
-        upload_to=category_pic_file_name, default='no-image.jpg'
+        upload_to=category_pic_file_name, null=True, blank=True
     )
 
     def save(self, file_changed=False, *args, **kwargs):
@@ -110,13 +113,10 @@ def default_location():
 class Order(models.Model):
     fullname = models.CharField(max_length=50)
     phone_number = models.CharField(max_length=15)
-    location = models.ForeignKey(Location, models.SET_DEFAULT, 
-        default=default_location)
+    location = models.ForeignKey(Location, on_delete=SET_NULL, null=True)
     scheduled_for = models.DateTimeField()
-    status = models.ForeignKey(OrderStatus, models.SET_DEFAULT, 
-        default=default_status)
-    payment = models.ForeignKey(PaymentMethod, models.SET_DEFAULT,
-        default=default_payment)
+    status = models.ForeignKey(OrderStatus, on_delete=SET_NULL, null=True)
+    payment = models.ForeignKey(PaymentMethod, on_delete=SET_NULL, null=True)
     menu_items = models.ManyToManyField(Menu, through='OrderItem')
 
     def __str__(self):
@@ -130,6 +130,28 @@ class OrderItem(models.Model):
 
     class Meta:
         unique_together = [['order', 'menu']]
+
+
+class CanteenSettings(models.Model):
+    specials_img = ResizedImageField(size=[300,200], quality=100, crop=['bottom', 'center'], 
+        null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+      if self.specials_img:
+         image = Image.open(self.specials_img).convert('RGB')
+         # for PNG images discarding the alpha channel and fill it with some color
+         if image.mode in ('RGBA', 'LA'):
+            background = Image.new(image.mode[:-1], image.size, '#fff')
+            background.paste(image, image.split()[-1])
+            image = background
+         image_io = BytesIO()
+         image.save(image_io, format='JPEG', quality=100)
+
+         # change the image field value to be the newly modified image value
+         self.specials_img.save('specials.jpg', ContentFile(image_io.getvalue()), save=False)
+
+      super().save(*args, **kwargs)
+
 
 
 @receiver(models.signals.post_delete, sender=Menu)
